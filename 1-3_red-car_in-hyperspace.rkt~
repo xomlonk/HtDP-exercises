@@ -1,0 +1,112 @@
+;; The first three lines of this file were inserted by DrRacket. They record metadata
+;; about the language level of this file in a form that our tools can easily process.
+#reader(lib "htdp-beginner-reader.ss" "lang")((modname 1-3_red-car_in-hyperspace) (read-case-sensitive #t) (teachpacks ((lib "image.rkt" "teachpack" "2htdp") (lib "universe.rkt" "teachpack" "2htdp") (lib "batch-io.rkt" "teachpack" "2htdp"))) (htdp-settings #(#t constructor repeating-decimal #f #t none #f ((lib "image.rkt" "teachpack" "2htdp") (lib "universe.rkt" "teachpack" "2htdp") (lib "batch-io.rkt" "teachpack" "2htdp")) #f)))
+; Sample Problem Design a program that
+; moves a car across the world canvas,
+; from left to right, at the rate of
+; three pixels per clock tick. If the mouse
+; is clicked anywhere on the canvas,
+; the car is placed at the x-coordinate of that click.
+
+; **********************************
+; physical constants
+
+(define WIDTH-OF-WORLD 200)
+(define HEIGHT-OF-WORLD 80)
+(define WHEEL-RADIUS 5)
+; a space between the wheels - coefficient
+(define WHEEL-DISTANCE (* WHEEL-RADIUS 4))
+; car's velocity
+(define CAR-VELOCITY 3)
+
+; **********************************
+; graphical constants
+
+(define WHEEL
+  (circle WHEEL-RADIUS "solid" "black"))
+; a space between the wheels
+(define SPACE
+  (rectangle WHEEL-DISTANCE WHEEL-RADIUS "solid" "white"))
+(define BOTH-WHEELS
+  (beside WHEEL SPACE WHEEL))
+(define CAR-BODY
+  (above (rectangle
+          (* WHEEL-RADIUS 5) WHEEL-RADIUS "solid" "red")
+         (rectangle
+          (* WHEEL-RADIUS 10) (* WHEEL-RADIUS 2) "solid" "red")))
+(define BACKGROUND
+  (empty-scene WIDTH-OF-WORLD HEIGHT-OF-WORLD "white"))
+(define CAR
+  (underlay/offset CAR-BODY
+                   0 (* WHEEL-RADIUS 2)
+                   BOTH-WHEELS))
+; the coordinate of the bottom of our car
+(define Y-CAR
+  (round (- HEIGHT-OF-WORLD (/ (image-height CAR) 2))))
+(define CAR-WIDTH
+  (image-width CAR))
+(define CAR-HALF-WIDTH
+  (/ (image-width CAR) 2))
+
+(define TREE
+  (underlay/xy (circle 10 "solid" "darkslategray")
+               9 15
+               (rectangle 2 20 "solid" "brown")))
+; the coordinate of the bottom of our tree
+(define Y-TREE
+  (round (- HEIGHT-OF-WORLD (/ (image-height TREE) 2))))
+; x-coordinate of the tree
+(define X-TREE 40)
+
+; **********************************
+; Functions
+
+; A AnimationState is a Number.
+; interpretation: the number of clock ticks 
+; since the animation started
+
+; AnimationState Number -> Number
+; calculates distance, travelled by the car
+(check-expect (car-distance 5) 15)
+
+(define (car-distance ws) (* CAR-VELOCITY ws))
+
+; WorldState -> Image
+; places the image of the car x (x = distance) pixels from
+; the left margin of the BACKGROUND image
+(check-expect (render 3)
+              (place-image CAR
+                           9 Y-CAR
+                           (place-image TREE
+                                        X-TREE Y-TREE
+                                        BACKGROUND)))
+
+(define (render ws)
+  (place-image CAR
+               (car-distance ws) Y-CAR
+               (place-image TREE X-TREE Y-TREE BACKGROUND)))
+
+; WorldState -> WorldState
+; increments time by 1 sec
+(check-expect (tock 20) 21)
+
+(define (tock ws)
+  (+ ws 1))
+
+; WorldState -> Boolean
+; stop the animation when the time for
+; travelling across the background exceeds
+(check-expect(end? 70) #false)
+(check-expect(end? 76) #true)
+
+(define (end? ws)
+  (> ws (ceiling (/ (+ WIDTH-OF-WORLD CAR-HALF-WIDTH)
+                    CAR-VELOCITY))))
+
+; WorldState -> WorldState
+; launches the program from some initial state
+(define (main ws)
+  (big-bang ws
+            [on-tick tock]
+            [to-draw render]
+            [stop-when end?]))
